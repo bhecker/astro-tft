@@ -69,6 +69,8 @@ def train_model(directory_path, file_prefix, batch_size=32, max_epochs=10):
 
     if torch.backends.mps.is_available():
         device = 'mps'
+    elif torch.cuda.is_available():
+        device = 'cuda'
     else:
         device = 'cpu'
 
@@ -90,7 +92,7 @@ def train_model(directory_path, file_prefix, batch_size=32, max_epochs=10):
     best_tft = get_best_tft_model(best_model_path)
 
     trainer_kwargs = {
-        'accelerator': 'mps' if torch.backends.mps.is_available() else 'cpu',
+        'accelerator': device,
         'devices': 1,
         'enable_progress_bar': True 
     }
@@ -143,8 +145,15 @@ def predict_from_saved_model(directory_path, file_prefix, best_model_path, batch
     test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=4, persistent_workers=True, shuffle=False)
     tft = get_best_tft_model(best_model_path)
 
+    if torch.backends.mps.is_available():
+        device = 'mps'
+    elif torch.cuda.is_available():
+        device = 'cuda'
+    else:
+        device = 'cpu'
+
     trainer_kwargs = {
-        'accelerator': 'mps' if torch.backends.mps.is_available() else 'cpu',
+        'accelerator': device,
         'devices': 1,
         'enable_progress_bar': True,
     }
