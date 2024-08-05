@@ -54,6 +54,17 @@ def read_fits_to_new_fits(directory_path, file_prefix, output_file):
     head_files = sorted(glob.glob(os.path.join(directory_path, f"**/{file_prefix}*HEAD.FITS"), recursive=True))
     phot_files = sorted(glob.glob(os.path.join(directory_path, f"**/{file_prefix}*PHOT.FITS"), recursive=True))
 
+    def filter_files(file_list):
+        filtered_files = []
+        for f in file_list:
+            number = int(os.path.basename(f).split('-')[-1].split('_')[0])
+            if 1 <= number <= 20:
+                filtered_files.append(f)
+        return filtered_files
+
+    head_files = filter_files(head_files)
+    phot_files = filter_files(phot_files)
+
     data = []
 
     print(f"Gefundene HEAD-Dateien: {len(head_files)}")
@@ -137,3 +148,19 @@ def check_inhomogeneous_shape(data, target_shape):
                 print(f"Row {i} has the target shape {target_shape}: {value}")
         except Exception as e:
             print(f"Error processing row {i}: {e}")
+
+def remove_underrepresented_classes(df):
+    class_counts = df['sim_type_index'].value_counts()
+    print("Klassenverteilung vor Anpassung:")
+    print(class_counts)
+
+    few_members_classes = class_counts[class_counts < 2].index.tolist()
+    print(f"Klassen mit weniger als 2 Vertretern: {few_members_classes}")
+
+    df = df[~df['sim_type_index'].isin(few_members_classes)]
+
+    class_counts_after = df['sim_type_index'].value_counts()
+    print("Klassenverteilung nach Anpassung:")
+    print(class_counts_after)
+
+    return df

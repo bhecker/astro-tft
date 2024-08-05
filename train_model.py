@@ -36,12 +36,13 @@ def train_model(directory_path, file_prefix, batch_size=32, max_epochs=10):
     print("Berechne optimale Längen für Encoder und Decoder...")
     max_encoder_length, max_prediction_length = calculate_optimal_lengths(df)
     print(f"Optimale max_encoder_length: {max_encoder_length}, max_prediction_length: {max_prediction_length}")
-
+    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05)
+    print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
 
     print("Teile Daten in Trainings- und Validierungssets...")
-    train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["group_id"])
+    train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["sim_type_index"])
     
-    training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length)
+    training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_prediction_length, max_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
     
     train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=4, persistent_workers=True)

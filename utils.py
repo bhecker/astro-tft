@@ -8,7 +8,7 @@ from lightning.pytorch.tuner import Tuner
 from pytorch_forecasting import TimeSeriesDataSet
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, Callback
 
-from data_loader import load_fits_data, load_fits_file
+from data_loader import load_fits_data, load_fits_file, remove_underrepresented_classes
 from dataset import get_time_series_dataset
 from model import get_tft_model
 
@@ -22,11 +22,11 @@ def free_memory():
     if torch.backends.mps.is_available():
         torch.mps.empty_cache()
 
-def findOptimumLr(file_path, file_prefix):
+def findOptimumLr(file_path):
     pl.seed_everything(42)
 
     print("Lade Daten...")
-    df = load_fits_data(file_path, file_prefix)
+    df = load_fits_file(file_path)
 
     print("Berechne optimale Längen für Encoder und Decoder...")
     max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, quantile=0.95)
@@ -34,13 +34,15 @@ def findOptimumLr(file_path, file_prefix):
     min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05)
     print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
 
-    train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["group_id"])
+    remove_underrepresented_classes(df)
+
+    train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["sim_type_index"])
 
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
 
-    train_dataloader = training.to_dataloader(train=True, batch_size=32, num_workers=4, persistent_workers=False)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=32, num_workers=4, persistent_workers=False) 
+    train_dataloader = training.to_dataloader(train=True, batch_size=32, num_workers=16, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=32, num_workers=16, persistent_workers=True) 
 
     early_stop_callback = EarlyStopping(
         monitor="val_loss",
