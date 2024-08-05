@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     #read_fits_to_new_fits(directory_path, file_prefix, "lightcurves.fits")
 
-    optimum_lr = findOptimumLr(file_path)
+    #optimum_lr = findOptimumLr(file_path, file_prefix)
 
     #tft_model, accuracy = train_model(directory_path, file_prefix)
 

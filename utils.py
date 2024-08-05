@@ -22,11 +22,11 @@ def free_memory():
     if torch.backends.mps.is_available():
         torch.mps.empty_cache()
 
-def findOptimumLr(file_path):
+def findOptimumLr(file_path, file_prefix):
     pl.seed_everything(42)
 
     print("Lade Daten...")
-    df = load_fits_file(file_path)
+    df = load_fits_data(file_path, file_prefix)
 
     print("Berechne optimale Längen für Encoder und Decoder...")
     max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, quantile=0.95)
@@ -50,7 +50,7 @@ def findOptimumLr(file_path):
         )
 
     trainer = pl.Trainer(
-        accelerator='mps',
+        accelerator='cuda',
         devices=1,
         callbacks=[early_stop_callback],
         enable_progress_bar=True,
