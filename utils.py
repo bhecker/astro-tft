@@ -6,7 +6,7 @@ import torch
 import lightning.pytorch as pl
 from lightning.pytorch.tuner import Tuner
 from pytorch_forecasting import TimeSeriesDataSet
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, Callback
+from lightning.pytorch.callbacks import EarlyStopping, Callback
 
 from data_loader import load_fits_data, load_fits_file, remove_underrepresented_classes
 from dataset import get_time_series_dataset

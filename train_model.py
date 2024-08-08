@@ -136,7 +136,7 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
         device = 'cpu'
 
     trainer_kwargs = {
-        'accelerator': 'cuda',
+        'accelerator': 'cpu',
         'devices': 1,
         'enable_progress_bar': True,
     }
@@ -205,6 +205,7 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
     predictions = tft.predict(test_dataloader, 
                               mode="raw",
                               trainer_kwargs=trainer_kwargs, 
+                              fast_dev_run=True,
     #                         write_interval='batch',
     #                         output_dir='predictions',
                               return_x=True)
@@ -253,7 +254,6 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
     "log_loss": log_loss_value
     }
 
-    # Speichern der Metriken in eine JSON-Datei
     with open("metrics.json", "w") as file:
         json.dump(metrics, file, indent=4)
 
@@ -308,7 +308,7 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
 
 #Keys in predictions.x: dict_keys(['encoder_cat', 'encoder_cont', 'encoder_target', 'encoder_lengths', 'decoder_cat', 'decoder_cont', #'decoder_target', 'decoder_lengths', 'decoder_time_idx', 'groups', 'target_scale'])
 
-    return tft, val_accuracy
+    return tft
 
 def find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, best_model_path, batch_size=32):
     pl.seed_everything(42)
