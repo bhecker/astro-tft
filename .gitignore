@@ -165,4 +165,5 @@ lightning_logs/
 checkpoints/
 tb_logs/my_model/
 lightcurves.fits
+test-lightcurves.fits
 training_data/
