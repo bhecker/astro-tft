@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, log_loss
 from pytorch_forecasting import TimeSeriesDataSet
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -93,7 +93,7 @@ def train_model(file_path, batch_size=256, max_epochs=10):
     
     predict_from_saved_model(f"test-{file_path}", best_model_path)
         
-    return tft, val_accuracy
+    return tft
 
 def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
     pl.seed_everything(42)
@@ -214,10 +214,13 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
     
     train_accuracy = accuracy_score(test_true_labels, test_class_predictions)
 
+    print(classification_report(test_true_labels, test_class_predictions, zero_division=0))
 
-    print(classification_report(test_true_labels, test_class_predictions, target_names=original_class_names, zero_division=0))
+    precision = precision_score(test_true_labels, test_class_predictions, average='weighted')
+    recall = recall_score(test_true_labels, test_class_predictions, average='weighted')
+    f1 = f1_score(test_true_labels, test_class_predictions, average='weighted')
 
-    conf_matrix = confusion_matrix(test_true_labels, test_class_predictions, labels=original_class_names)
+    conf_matrix = confusion_matrix(test_true_labels, test_class_predictions)
 
     plt.figure(figsize=(10, 8))
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')

@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     #optimum_lr = findOptimumLr(file_path)
     
-    tft_model, accuracy = train_model(file_path)
+    tft_model = train_model(file_path)
         
     #tft_model, val_accuracy = predict_from_saved_model(file_path, checkpoint_path)
 
