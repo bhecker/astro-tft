@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import lightning.pytorch as pl
@@ -209,6 +210,23 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
                               return_x=True)
     free_memory()
 
+    logits = predictions.output.prediction
+    true_labels = predictions.x['decoder_target']
+
+    # Move tensors to CPU
+    logits_cpu = logits.cpu()
+    true_labels_cpu = true_labels.cpu()
+
+    # Apply softmax to get probabilities
+    probabilities = F.softmax(torch.tensor(logits_cpu), dim=-1)
+
+    # Get class predictions for each time step
+    class_predictions = np.argmax(probabilities, axis=-1)
+
+    # Flatten predictions and true labels
+    class_predictions_flat = class_predictions.view(-1).numpy()
+    true_labels_flat = true_labels_cpu.view(-1).numpy()
+
     test_true_labels = predictions.y
     test_class_predictions = predictions.output
     
@@ -221,6 +239,25 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
     f1 = f1_score(test_true_labels, test_class_predictions, average='weighted')
 
     conf_matrix = confusion_matrix(test_true_labels, test_class_predictions)
+
+    roc_auc = roc_auc_score(test_true_labels, probabilities, multi_class='ovr')
+    log_loss_value = log_loss(test_true_labels, probabilities)
+
+    metrics = {
+    "accuracy": train_accuracy,
+    "precision": precision,
+    "recall": recall,
+    "f1_score": f1,
+    "confusion_matrix": conf_matrix.tolist(),
+    "roc_auc": roc_auc,
+    "log_loss": log_loss_value
+    }
+
+    # Speichern der Metriken in eine JSON-Datei
+    with open("metrics.json", "w") as file:
+        json.dump(metrics, file, indent=4)
+
+    print("Die Metriken wurden in metrics.json gespeichert.")
 
     plt.figure(figsize=(10, 8))
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
