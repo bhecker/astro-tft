@@ -18,42 +18,20 @@ torch.set_float32_matmul_precision('medium')
 if __name__ == "__main__":
     directory_path = 'training_data/test_fits'
     file_prefix = 'ELASTICC2_TRAIN_02_NONIaMODEL0-'
-    checkpoint_path = 'checkpoints/best-checkpoint.ckpt'
-    file_path = 'test-lightcurves.fits'
+    checkpoint_path = 'best-checkpoint.ckpt'
+    file_path = 'test-lightcurves-cleaned.fits'
 
     start_time = time.time()
     print(f"Training gestartet um: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
 
     #read_fits_to_new_fits(directory_path, file_prefix, "test-lightcurves.fits")
     #read_fits_to_new_test_fits(directory_path, file_prefix, "test-cleaned-lightcurves.fits")
-    #optimum_lr = findOptimumLr(file_path)
-    
-    import pandas as pd
-    import numpy as np
-    from astropy.io import fits
-    
-    def check_band_values(file_path):
-        with fits.open(file_path) as hdul:
-            data = hdul[1].data
-            data = data.byteswap().newbyteorder()
-            
-            df = pd.DataFrame(np.array(data))
-    
-            # Finde alle einzigartigen Band-Werte
-            unique_bands = df['band'].unique()
-    
-        return unique_bands
-    
-    # Pfad zur Test-Lightcurves-Datei
-    test_file_path = 'test-cleaned-lightcurves.fits'
-    
-    unique_bands = check_band_values(test_file_path)
-    print(f"Einzigartige Band-Werte in {test_file_path}: {unique_bands}")
-    
+
+    #optimum_lr = findOptimumLr(file_path)    
 
     #tft_model = train_model(file_path)
         
-    #tft_model, val_accuracy = predict_from_saved_model(file_path, checkpoint_path)
+    tft_model = predict_from_saved_model(file_path, checkpoint_path)
 
     #find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, checkpoint_path)
 

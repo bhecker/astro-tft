@@ -1,5 +1,4 @@
 import json
-import os
 import pickle
 import lightning.pytorch as pl
 from matplotlib import pyplot as plt
@@ -124,7 +123,7 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
 #
     #train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=4, persistent_workers=True)
     #val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=4, persistent_workers=True, shuffle=False)
-    test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=28, persistent_workers=True, shuffle=False)
+    test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=14, persistent_workers=True, shuffle=False)
     
     tft = get_best_tft_model(best_model_path)
 
@@ -136,7 +135,7 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
         device = 'cpu'
 
     trainer_kwargs = {
-        'accelerator': 'cpu',
+        'accelerator': 'cuda',
         'devices': 1,
         'enable_progress_bar': True,
     }
@@ -205,7 +204,7 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
     predictions = tft.predict(test_dataloader, 
                               mode="raw",
                               trainer_kwargs=trainer_kwargs, 
-                              fast_dev_run=True,
+                              fast_dev_run=False,
     #                         write_interval='batch',
     #                         output_dir='predictions',
                               return_x=True)
@@ -214,35 +213,30 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
     logits = predictions.output.prediction
     true_labels = predictions.x['decoder_target']
 
-    # Move tensors to CPU
     logits_cpu = logits.cpu()
     true_labels_cpu = true_labels.cpu()
 
-    # Apply softmax to get probabilities
-    probabilities = F.softmax(torch.tensor(logits_cpu), dim=-1)
+    probabilities = F.softmax(logits_cpu.clone().detach(), dim=-1)
+    probabilities_avg = probabilities.mean(dim=1)
+    print(f"Shape of probabilities: {probabilities.shape}")
 
-    # Get class predictions for each time step
     class_predictions = np.argmax(probabilities, axis=-1)
 
-    # Flatten predictions and true labels
     class_predictions_flat = class_predictions.view(-1).numpy()
     true_labels_flat = true_labels_cpu.view(-1).numpy()
-
-    test_true_labels = predictions.y
-    test_class_predictions = predictions.output
     
-    train_accuracy = accuracy_score(test_true_labels, test_class_predictions)
+    train_accuracy = accuracy_score(true_labels_flat, class_predictions_flat)
 
-    print(classification_report(test_true_labels, test_class_predictions, zero_division=0))
+    print(classification_report(true_labels_flat, class_predictions_flat, zero_division=0))
 
-    precision = precision_score(test_true_labels, test_class_predictions, average='weighted')
-    recall = recall_score(test_true_labels, test_class_predictions, average='weighted')
-    f1 = f1_score(test_true_labels, test_class_predictions, average='weighted')
+    precision = precision_score(true_labels_flat, class_predictions_flat, average='weighted')
+    recall = recall_score(true_labels_flat, class_predictions_flat, average='weighted')
+    f1 = f1_score(true_labels_flat, class_predictions_flat, average='weighted')
 
-    conf_matrix = confusion_matrix(test_true_labels, test_class_predictions)
+    conf_matrix = confusion_matrix(true_labels_flat, class_predictions_flat)
 
-    roc_auc = roc_auc_score(test_true_labels, probabilities, multi_class='ovr')
-    log_loss_value = log_loss(test_true_labels, probabilities)
+    roc_auc = roc_auc_score(true_labels_flat, probabilities_avg, multi_class='ovr')
+    log_loss_value = log_loss(true_labels_flat, probabilities_avg)
 
     metrics = {
     "accuracy": train_accuracy,
