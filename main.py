@@ -1,5 +1,6 @@
 import os
 from astropy.io import fits
+import numpy as np
 from pytorch_forecasting import TemporalFusionTransformer
 import torch
 
@@ -8,7 +9,7 @@ from data_loader import get_fits_column_names, load_fits_data, read_fits_to_new_
 #os.environ['PYTORCH_MPS_LOW_WATERMARK_RATIO'] = '0.85'
 
 import time
-from train_model import find_optimal_hyperparameters_from_saved_model, predict_from_saved_model, train_model
+from train_model import find_optimal_hyperparameters_from_saved_model, predict_from_saved_model, process_all_fits_files, train_model
 from utils import findOptimumLr, get_shortest_series
 import pandas as pd
 from astropy.io import fits
@@ -31,7 +32,9 @@ if __name__ == "__main__":
 
     #tft_model = train_model(file_path)
         
-    tft_model = predict_from_saved_model(file_path, checkpoint_path)
+    #tft_model = predict_from_saved_model(file_path, checkpoint_path)
+
+    process_all_fits_files('lightcurves', 'best-checkpoint.ckpt', 32)
 
     #find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, checkpoint_path)
 

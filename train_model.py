@@ -1,8 +1,11 @@
+import glob
 import json
+import os
 import pickle
 import lightning.pytorch as pl
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, log_loss
@@ -13,6 +16,7 @@ import seaborn as sns
 import torch.nn.functional as F
 from pytorch_forecasting.models.temporal_fusion_transformer.tuning import optimize_hyperparameters
 from lightning.pytorch.accelerators import find_usable_cuda_devices
+from astropy.io import fits
 
 from data_loader import load_fits_data, load_fits_file
 from dataset import get_time_series_dataset
@@ -352,3 +356,34 @@ def find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, b
         pickle.dump(study, fout)
 
     print(study.best_trial.params)
+
+def process_all_fits_files(directory_path, checkpoint_path, batch_size=32):
+    fits_files = sorted(glob.glob(os.path.join(directory_path, '*.fits')))
+
+    tft = get_best_tft_model(checkpoint_path)
+    
+    trainer_kwargs = {
+        'accelerator': 'mps',
+        'devices': 1,
+        'enable_progress_bar': True,
+    }
+    
+    i = 0
+    for fits_file in fits_files:
+        i = i + 1
+
+        with fits.open(fits_file) as hdul:
+            data = hdul[1].data
+        
+        df = pd.DataFrame(data)
+        test = get_time_series_dataset(df, 165, 165, 19, 19)
+
+        test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=4, shuffle=False)
+        
+        predictions = tft.predict(test_dataloader, 
+                                  mode="raw",
+                                  trainer_kwargs=trainer_kwargs, 
+                                  fast_dev_run=False,
+                                  write_interval='batch',
+                                  output_dir=f'predictions-test/{i}',
+                                  return_x=True)

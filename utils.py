@@ -7,6 +7,7 @@ import lightning.pytorch as pl
 from lightning.pytorch.tuner import Tuner
 from pytorch_forecasting import TimeSeriesDataSet
 from lightning.pytorch.callbacks import EarlyStopping, Callback
+from astropy.io import fits
 
 from data_loader import load_fits_data, load_fits_file, remove_underrepresented_classes
 from dataset import get_time_series_dataset
@@ -195,6 +196,33 @@ def get_shortest_series(df, n=10):
         print(f"Zeitreihe für group_id {group_id}:\n", series)
 
     return shortest_series    
+
+def split_lightcurves():
+    group_size = 1000
+    with fits.open('test-lightcurves-cleaned.fits') as hdul:
+        data = hdul[1].data
+        columns = hdul[1].columns
+
+    # Get unique group_ids
+    group_ids = np.unique(data['group_id'])
+
+    # Split the group_ids into chunks of specified size
+    for i in range(0, len(group_ids), group_size):
+        chunk_group_ids = group_ids[i:i + group_size]
+
+        # Filter data to only include rows with group_ids in the current chunk
+        chunk_data = data[np.isin(data['group_id'], chunk_group_ids)]
+
+        # Create new FITS file
+        hdu = fits.BinTableHDU.from_columns(columns, nrows=len(chunk_data))
+
+        for colname in columns.names:
+            hdu.data[colname] = chunk_data[colname]
+
+        # Save the chunk to a new FITS file
+        output_file = os.path.join('lightcurves', f"lightcurves_chunk_{i // group_size + 1}.fits")
+        hdu.writeto(output_file, overwrite=True)
+        print(f"Saved {len(chunk_group_ids)} group_ids to {output_file}")
 
 class MemoryCleanupCallback(Callback):
     def on_epoch_end(self, trainer, pl_module):
