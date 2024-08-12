@@ -1,3 +1,4 @@
+import gc
 import glob
 import json
 import os
@@ -358,12 +359,14 @@ def find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, b
     print(study.best_trial.params)
 
 def process_all_fits_files(directory_path, checkpoint_path, batch_size=32):
+    pl.seed_everything(42)
+
     fits_files = sorted(glob.glob(os.path.join(directory_path, '*.fits')))
 
     tft = get_best_tft_model(checkpoint_path)
     
     trainer_kwargs = {
-        'accelerator': 'mps',
+        'accelerator': 'cuda',
         'devices': 1,
         'enable_progress_bar': True,
     }
@@ -371,14 +374,15 @@ def process_all_fits_files(directory_path, checkpoint_path, batch_size=32):
     i = 0
     for fits_file in fits_files:
         i = i + 1
-
+        print("predicting file", fits_file)
+        print("for run No.", i)
         with fits.open(fits_file) as hdul:
             data = hdul[1].data
         
         df = pd.DataFrame(data)
         test = get_time_series_dataset(df, 165, 165, 19, 19)
 
-        test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=4, shuffle=False)
+        test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=0, shuffle=False)
         
         predictions = tft.predict(test_dataloader, 
                                   mode="raw",
@@ -387,3 +391,6 @@ def process_all_fits_files(directory_path, checkpoint_path, batch_size=32):
                                   write_interval='batch',
                                   output_dir=f'predictions-test/{i}',
                                   return_x=True)
+
+        gc.collect()
+        torch.cuda.empty_cache()

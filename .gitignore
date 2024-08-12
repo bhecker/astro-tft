@@ -166,3 +166,6 @@ checkpoints/
 tb_logs/my_model/
 *.fits
 training_data/
+lightcurves/
+predictions-test/*
+halved-lightcurves/
