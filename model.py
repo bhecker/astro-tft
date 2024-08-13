@@ -3,7 +3,7 @@ from pytorch_forecasting import TemporalFusionTransformer
 from pytorch_forecasting.metrics import CrossEntropy
 import torch
 
-def get_tft_model(training, learning_rate=0.01, lstm_layers=2, hidden_size=12, attention_head_size=2, dropout=0.1, hidden_continuous_size=12):
+def get_tft_model(training, learning_rate=0.01, lstm_layers=2, hidden_size=4, attention_head_size=2, dropout=0.1, hidden_continuous_size=4):
     tft = TemporalFusionTransformer.from_dataset(
         training,
         learning_rate=learning_rate,
@@ -15,7 +15,8 @@ def get_tft_model(training, learning_rate=0.01, lstm_layers=2, hidden_size=12, a
         output_size=len(training.target_normalizer.classes_),
         loss=CrossEntropy(),
         log_interval=30,
-        reduce_on_plateau_patience=2
+        reduce_on_plateau_patience=2,
+        optimizer="Ranger"
     )
 
     tft.save_hyperparameters(ignore=['loss', 'logging_metrics'])

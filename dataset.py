@@ -11,7 +11,7 @@ def get_time_series_dataset(df, max_encoder_length, max_prediction_length, min_e
         max_prediction_length=max_prediction_length,
         min_encoder_length=min_encoder_length,
         min_prediction_length=min_prediction_length,
-        time_varying_known_reals=["time_idx", "fluxcalerr", "mjd"],
+        time_varying_known_reals=["fluxcalerr", "mjd"],
         time_varying_unknown_reals=["fluxcal"],
         time_varying_unknown_categoricals=["band"],
         static_reals=["redshift"],

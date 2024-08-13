@@ -1,24 +1,13 @@
 import json
 from matplotlib import pyplot as plt
-from sklearn.base import accuracy_score
-from sklearn.metrics import classification_report, confusion_matrix, f1_score, log_loss, precision_score, recall_score, roc_auc_score
+import numpy as np
+from sklearn.metrics import classification_report, confusion_matrix, f1_score, log_loss, precision_score, recall_score, roc_auc_score, accuracy_score
 import seaborn as sns
 
-def calculate_metrics(predictions):
-    logits = predictions.output.prediction
-    true_labels = predictions.x['decoder_target']
-
-    logits_cpu = logits.cpu()
-    true_labels_cpu = true_labels.cpu()
-
-    probabilities = F.softmax(logits_cpu.clone().detach(), dim=-1)
-    probabilities_avg = probabilities.mean(dim=1)
-    print(f"Shape of probabilities: {probabilities.shape}")
-
-    class_predictions = np.argmax(probabilities, axis=-1)
-
-    class_predictions_flat = class_predictions.view(-1).numpy()
-    true_labels_flat = true_labels_cpu.view(-1).numpy()
+def calculate_metrics():
+    class_predictions_flat = np.load(f'predictions-test/final_combined_class_predictions.npy')
+    true_labels_flat = np.load(f'predictions-test/final_combined_true_labels.npy')
+    probabilities_avg = np.load(f'predictions-test/final_combined_probabilities_avg.npy')
     
     train_accuracy = accuracy_score(true_labels_flat, class_predictions_flat)
 

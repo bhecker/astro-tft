@@ -145,8 +145,8 @@ def findOptimumLr(file_path):
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
 
-    train_dataloader = training.to_dataloader(train=True, batch_size=256, num_workers=28, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=256*10, num_workers=28, persistent_workers=True) 
+    train_dataloader = training.to_dataloader(train=True, batch_size=128, num_workers=13, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=128*10, num_workers=13, persistent_workers=True) 
 
     early_stop_callback = EarlyStopping(
         monitor="val_loss",
@@ -336,41 +336,35 @@ def combine_files(output_dir, dataloader_id):
     print(f"Combined files saved to {output_dir} for dataloader id {dataloader_id}")
 
 def combine_all_dataloaders(output_dir):
-    # Get all dataloader directories
     dataloader_dirs = [d for d in os.listdir(output_dir) if d.isdigit()]
 
-    combined_class_predictions = []
-    combined_true_labels = []
-    combined_probabilities_avg = []
+    combined_cp_final_path = os.path.join(output_dir, 'final_combined_class_predictions.npy')
+    combined_tl_final_path = os.path.join(output_dir, 'final_combined_true_labels.npy')
+    combined_pa_final_path = os.path.join(output_dir, 'final_combined_probabilities_avg.npy')
 
     for dataloader_dir in sorted(dataloader_dirs, key=int):
-        dataloader_id = int(dataloader_dir)
-        if int(dataloader_id) == 194:
+        if int(dataloader_dir) == 194:
             continue
-        
+        dataloader_id = int(dataloader_dir)
         #combine_files(output_dir, dataloader_id)
 
-        # Load the combined files for this dataloader
-        class_predictions = np.load(os.path.join(output_dir, f'combined_class_predictions_dataloader_{dataloader_id}.npy'))
-        true_labels = np.load(os.path.join(output_dir, f'combined_true_labels_dataloader_{dataloader_id}.npy'))
-        probabilities_avg = np.load(os.path.join(output_dir, f'combined_probabilities_avg_dataloader_{dataloader_id}.npy'))
+        combined_cp_path = os.path.join(output_dir, f'combined_class_predictions_dataloader_{dataloader_id}.npy')
+        combined_tl_path = os.path.join(output_dir, f'combined_true_labels_dataloader_{dataloader_id}.npy')
+        combined_pa_path = os.path.join(output_dir, f'combined_probabilities_avg_dataloader_{dataloader_id}.npy')
 
-        # Append to the final combined lists
-        combined_class_predictions.append(class_predictions)
-        combined_true_labels.append(true_labels)
-        combined_probabilities_avg.append(probabilities_avg)
+        cp_data = np.load(combined_cp_path, mmap_mode='r')
+        tl_data = np.load(combined_tl_path, mmap_mode='r')
+        pa_data = np.load(combined_pa_path, mmap_mode='r')
 
-    # Concatenate all dataloader arrays to create the final arrays
-    final_class_predictions = np.concatenate(combined_class_predictions)
-    final_true_labels = np.concatenate(combined_true_labels)
-    final_probabilities_avg = np.concatenate(combined_probabilities_avg)
+        with open(combined_cp_final_path, 'ab') as combined_cp_final, \
+             open(combined_tl_final_path, 'ab') as combined_tl_final, \
+             open(combined_pa_final_path, 'ab') as combined_pa_final:
+            np.save(combined_cp_final, cp_data)
+            np.save(combined_tl_final, tl_data)
+            np.save(combined_pa_final, pa_data)
 
-    # Save the final combined arrays to new files
-    np.save(os.path.join(output_dir, 'final_combined_class_predictions.npy'), final_class_predictions)
-    np.save(os.path.join(output_dir, 'final_combined_true_labels.npy'), final_true_labels)
-    np.save(os.path.join(output_dir, 'final_combined_probabilities_avg.npy'), final_probabilities_avg)
-    
     print(f"Final combined files saved to {output_dir}")
+
 
 
 class MemoryCleanupCallback(Callback):

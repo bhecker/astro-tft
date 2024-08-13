@@ -24,7 +24,7 @@ from dataset import get_time_series_dataset
 from model import get_best_tft_model, get_tft_model
 from utils import MemoryCleanupCallback, calculate_optimal_lengths, free_memory
 
-def train_model(file_path, batch_size=256, max_epochs=10):
+def train_model(file_path, batch_size=64, max_epochs=10):
     pl.seed_everything(42)
 
     free_memory()
@@ -50,10 +50,10 @@ def train_model(file_path, batch_size=256, max_epochs=10):
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_prediction_length, max_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
     
-    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=28, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=28, persistent_workers=True, shuffle=False)
+    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=13, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=13, persistent_workers=True, shuffle=False)
     
-    tft = get_tft_model(training, learning_rate=0.03)
+    tft = get_tft_model(training, learning_rate=0.01)
 
     logger = TensorBoardLogger("tb_logs", name="my_model")
     early_stop_callback = EarlyStopping(
@@ -309,13 +309,14 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
 
     return tft
 
-def find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, best_model_path, batch_size=32):
+def find_optimal_hyperparameters_from_saved_model(file_path, best_model_path, batch_size=128):
     pl.seed_everything(42)
 
     free_memory()
 
     print("Lade Daten...")
-    df = load_fits_data(directory_path, file_prefix)
+    df = load_fits_file(file_path)
+
     print("unique werte", df['group_id'].nunique())
     print("DataFrame Vorschau:\n", df.head())
     print("Anzahl der Zeilen im DataFrame:", len(df))
@@ -333,8 +334,8 @@ def find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, b
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
 
-    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=4, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=4, persistent_workers=True, shuffle=False)
+    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=14, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=14, persistent_workers=True, shuffle=False)
 
     study = optimize_hyperparameters(
         train_dataloader,
@@ -346,10 +347,10 @@ def find_optimal_hyperparameters_from_saved_model(directory_path, file_prefix, b
         hidden_size_range=(3, 4),
         hidden_continuous_size_range=(3, 4),
         attention_head_size_range=(1, 2),
-        learning_rate_range=(0.01, 0.3),
+        learning_rate_range=(0.01, 0.5),
         dropout_range=(0.1, 0.3),
-        trainer_kwargs=dict(limit_train_batches=30, accelerator='mps', devices=1, enable_progress_bar=True),
-        reduce_on_plateau_patience=4,
+        trainer_kwargs=dict(limit_train_batches=30, accelerator='cuda', devices=1, enable_progress_bar=True),
+        reduce_on_plateau_patience=3,
         use_learning_rate_finder=False
     )
 
