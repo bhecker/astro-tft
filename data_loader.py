@@ -37,7 +37,7 @@ def load_fits_data(directory_path, file_prefix):
                 ptrobs_max = head_row['PTROBS_MAX']
                 sim_type_index = head_row['SIM_TYPE_INDEX']
 
-                light_curve = phot_data[ptrobs_min:ptrobs_max + 1]
+                light_curve = phot_data[ptrobs_min:ptrobs_max]
                 fluxcal_values = light_curve['FLUXCAL']
 
                 for time_idx, fluxcal in enumerate(fluxcal_values):

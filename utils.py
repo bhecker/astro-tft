@@ -119,7 +119,7 @@ from model import get_tft_model
 def calculate_optimal_lengths(df, quantile=0.95):
     lengths = df.groupby("group_id")["time_idx"].max() + 1
     optimal_length = int(lengths.quantile(quantile))
-    return optimal_length // 2, optimal_length // 2
+    return optimal_length
 
 def free_memory():
     gc.collect()

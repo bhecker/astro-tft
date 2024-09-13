@@ -39,9 +39,9 @@ def train_model(file_path, batch_size=64, max_epochs=10):
         raise ValueError("DataFrame ist leer. Überprüfen Sie die Datenlade- und Verarbeitungsfunktionen.")
     
     print("Berechne optimale Längen für Encoder und Decoder...")
-    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df)
+    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df), 1
     print(f"Optimale max_encoder_length: {max_encoder_length}, max_prediction_length: {max_prediction_length}")
-    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05)
+    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05), 1
     print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
 
     print("Teile Daten in Trainings- und Validierungssets...")
@@ -50,8 +50,8 @@ def train_model(file_path, batch_size=64, max_epochs=10):
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_prediction_length, max_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
     
-    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=13, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=13, persistent_workers=True, shuffle=False)
+    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=8, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=8, persistent_workers=True, shuffle=False)
     
     tft = get_tft_model(training, learning_rate=0.01)
 
