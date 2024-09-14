@@ -155,6 +155,7 @@ def read_fits_to_new_test_fits(directory_path, file_prefix, output_file):
                 redshift = head_row['REDSHIFT_HELIO']                
 
                 light_curve = phot_data[ptrobs_min:ptrobs_max]
+                light_curve = light_curve[light_curve['MJD'] != -777]
                 mjd = light_curve['MJD']
                 fluxcal_values = light_curve['FLUXCAL']
                 fluxcal_err = light_curve['FLUXCALERR']
