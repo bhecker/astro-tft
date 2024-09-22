@@ -201,7 +201,7 @@ def get_shortest_series(df, n=10):
 
 def split_lightcurves():
     group_size = 1000
-    with fits.open('test-lightcurves-cleaned.fits') as hdul:
+    with fits.open('test-lightcurves-4class.fits') as hdul:
         data = hdul[1].data
         columns = hdul[1].columns
 
@@ -222,7 +222,7 @@ def split_lightcurves():
             hdu.data[colname] = chunk_data[colname]
 
         # Save the chunk to a new FITS file
-        output_file = os.path.join('lightcurves', f"lightcurves_chunk_{i // group_size + 1}.fits")
+        output_file = os.path.join('test-lightcurves', f"test-lightcurves_chunk_{i // group_size + 1}.fits")
         hdu.writeto(output_file, overwrite=True)
         print(f"Saved {len(chunk_group_ids)} group_ids to {output_file}")
 

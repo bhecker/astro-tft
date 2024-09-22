@@ -11,7 +11,7 @@ from data_loader import get_fits_column_names, load_fits_data, read_fits_to_new_
 import time
 from metrics import calculate_metrics
 from train_model import find_optimal_hyperparameters_from_saved_model, predict_from_saved_model, process_all_fits_files, train_model
-from utils import combine_all_dataloaders, findOptimumLr, get_shortest_series, split_all_fits_files
+from utils import combine_all_dataloaders, findOptimumLr, get_shortest_series, split_all_fits_files, split_lightcurves
 import pandas as pd
 from astropy.io import fits
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     directory_path = 'training_data/test_fits'
     file_prefix = 'ELASTICC2_TRAIN_02_NONIaMODEL0-'
     checkpoint_path = 'best-checkpoint.ckpt'
-    file_path = 'lightcurves.fits'
+    file_path = 'lightcurves-4class.fits'
 
     start_time = time.time()
     print(f"Training gestartet um: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
@@ -32,11 +32,11 @@ if __name__ == "__main__":
     #optimum_lr = findOptimumLr(file_path)    
 
     tft_model = train_model(file_path)
-        
+    
     #tft_model = predict_from_saved_model(file_path, checkpoint_path)
 
-    #split_all_fits_files('lightcurves','halved-lightcurves')
-    #process_all_fits_files('halved-lightcurves', 'best-checkpoint.ckpt', 256*10)
+    #split_all_fits_files('test-halved-lightcurves','test-lightcurves')
+    #process_all_fits_files('testlightcurves', 'checkpoints/best-checkpoint.ckpt')
     #combine_all_dataloaders('predictions-test')
     #calculate_metrics()
     #find_optimal_hyperparameters_from_saved_model(file_path, checkpoint_path)

@@ -24,7 +24,7 @@ from dataset import get_time_series_dataset
 from model import get_best_tft_model, get_tft_model
 from utils import MemoryCleanupCallback, calculate_optimal_lengths, free_memory
 
-def train_model(file_path, batch_size=64, max_epochs=10):
+def train_model(file_path, batch_size=32, max_epochs=10):
     pl.seed_everything(42)
 
     free_memory()
@@ -50,8 +50,8 @@ def train_model(file_path, batch_size=64, max_epochs=10):
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_prediction_length, max_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
     
-    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=8, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=8, persistent_workers=True, shuffle=False)
+    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=13, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=13, persistent_workers=True, shuffle=False)
     
     tft = get_tft_model(training, learning_rate=0.01)
 
@@ -65,7 +65,7 @@ def train_model(file_path, batch_size=64, max_epochs=10):
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints",
-        filename="best-checkpoint",
+        filename="best-checkpoint-encodlencalced",
         save_top_k=1,
         monitor="val_loss",
         mode="min"
@@ -96,7 +96,7 @@ def train_model(file_path, batch_size=64, max_epochs=10):
 
     best_model_path = trainer.checkpoint_callback.best_model_path
     
-    predict_from_saved_model(f"test-{file_path}", best_model_path)
+    predict_from_saved_model(f"test-lightcurves-4class.fits", best_model_path)
         
     return tft
 
@@ -359,7 +359,7 @@ def find_optimal_hyperparameters_from_saved_model(file_path, best_model_path, ba
 
     print(study.best_trial.params)
 
-def process_all_fits_files(directory_path, checkpoint_path, batch_size=32):
+def process_all_fits_files(directory_path, checkpoint_path, batch_size=1028):
     pl.seed_everything(42)
 
     fits_files = sorted(glob.glob(os.path.join(directory_path, '*.fits')))

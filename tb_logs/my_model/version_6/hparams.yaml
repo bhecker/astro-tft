@@ -27,7 +27,11 @@ embedding_sizes:
   band: !!python/tuple
   - 6
   - 4
+<<<<<<< Updated upstream
 hidden_continuous_size: 4
+=======
+hidden_continuous_size: 8
+>>>>>>> Stashed changes
 hidden_continuous_sizes: {}
 hidden_size: 4
 learning_rate: 0.01
