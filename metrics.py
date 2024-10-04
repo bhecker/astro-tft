@@ -1,17 +1,24 @@
 import json
 from matplotlib import pyplot as plt
 import numpy as np
+from pytorch_forecasting import NaNLabelEncoder, TemporalFusionTransformer
 from sklearn.metrics import classification_report, confusion_matrix, f1_score, log_loss, precision_score, recall_score, roc_auc_score, accuracy_score
 import seaborn as sns
 
 def calculate_metrics():
+    model = TemporalFusionTransformer.load_from_checkpoint("best-checkpoint-20240918-165encoder.ckpt")
+    # if hasattr(model, 'output_transformer'):
+    #     output_transformer = model.output_transformer
+    #     class_names = output_transformer.classes_
+
+    class_names = ['SNIa', 'Dwarf Novae', 'Microlenses', 'Cepheids']
+
     class_predictions_flat = np.load(f'predictions-test/final_combined_class_predictions.npy')
     true_labels_flat = np.load(f'predictions-test/final_combined_true_labels.npy')
     probabilities_avg = np.load(f'predictions-test/final_combined_probabilities_avg.npy')
     
     train_accuracy = accuracy_score(true_labels_flat, class_predictions_flat)
-
-    print(classification_report(true_labels_flat, class_predictions_flat, zero_division=0))
+    print(classification_report(true_labels_flat, class_predictions_flat, target_names=class_names, zero_division=0))
 
     precision = precision_score(true_labels_flat, class_predictions_flat, average='weighted')
     recall = recall_score(true_labels_flat, class_predictions_flat, average='weighted')
@@ -19,17 +26,12 @@ def calculate_metrics():
 
     conf_matrix = confusion_matrix(true_labels_flat, class_predictions_flat)
 
-    roc_auc = roc_auc_score(true_labels_flat, probabilities_avg, multi_class='ovr')
-    log_loss_value = log_loss(true_labels_flat, probabilities_avg)
-
     metrics = {
     "accuracy": train_accuracy,
     "precision": precision,
     "recall": recall,
     "f1_score": f1,
     "confusion_matrix": conf_matrix.tolist(),
-    "roc_auc": roc_auc,
-    "log_loss": log_loss_value
     }
 
     with open("metrics.json", "w") as file:

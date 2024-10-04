@@ -100,7 +100,7 @@ def train_model(file_path, batch_size=32, max_epochs=10):
         
     return tft
 
-def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
+def predict_from_saved_model(file_path, best_model_path, batch_size=1028):
     pl.seed_everything(42)
 
     free_memory()
@@ -128,16 +128,9 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
 #
     #train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=4, persistent_workers=True)
     #val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=4, persistent_workers=True, shuffle=False)
-    test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=14, persistent_workers=True, shuffle=False)
+    test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=12, persistent_workers=True, shuffle=False)
     
     tft = get_best_tft_model(best_model_path)
-
-    if torch.backends.mps.is_available():
-        device = 'mps'
-    elif torch.cuda.is_available():
-        device = 'cuda'
-    else:
-        device = 'cpu'
 
     trainer_kwargs = {
         'accelerator': 'cuda',
@@ -210,8 +203,8 @@ def predict_from_saved_model(file_path, best_model_path, batch_size=256*10):
                               mode="raw",
                               trainer_kwargs=trainer_kwargs, 
                               fast_dev_run=False,
-    #                         write_interval='batch',
-    #                         output_dir='predictions',
+                              write_interval='batch',
+                              output_dir='predictions',
                               return_x=True)
     free_memory()
 

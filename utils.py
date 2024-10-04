@@ -200,7 +200,8 @@ def get_shortest_series(df, n=10):
     return shortest_series    
 
 def split_lightcurves():
-    group_size = 1000
+    group_size = 130
+    
     with fits.open('test-lightcurves-4class.fits') as hdul:
         data = hdul[1].data
         columns = hdul[1].columns
@@ -343,10 +344,10 @@ def combine_all_dataloaders(output_dir):
     combined_pa_final_path = os.path.join(output_dir, 'final_combined_probabilities_avg.npy')
 
     for dataloader_dir in sorted(dataloader_dirs, key=int):
-        if int(dataloader_dir) == 194:
+        if int(dataloader_dir) == 161:
             continue
         dataloader_id = int(dataloader_dir)
-        #combine_files(output_dir, dataloader_id)
+        combine_files(output_dir, dataloader_id)
 
         combined_cp_path = os.path.join(output_dir, f'combined_class_predictions_dataloader_{dataloader_id}.npy')
         combined_tl_path = os.path.join(output_dir, f'combined_true_labels_dataloader_{dataloader_id}.npy')

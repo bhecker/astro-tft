@@ -18,27 +18,28 @@ from astropy.io import fits
 torch.set_float32_matmul_precision('medium')
 
 if __name__ == "__main__":
-    directory_path = 'training_data/test_fits'
+    directory_path = 'test_fits'
     file_prefix = 'ELASTICC2_TRAIN_02_NONIaMODEL0-'
-    checkpoint_path = 'best-checkpoint.ckpt'
-    file_path = 'lightcurves-4class.fits'
+    checkpoint_path = 'best-checkpoint-20240918-165encoder.ckpt'
+    file_path = 'test-lightcurves-4class.fits'
 
     start_time = time.time()
     print(f"Training gestartet um: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
 
-    #read_fits_to_new_fits(directory_path, file_prefix, "test-lightcurves.fits")
+    #read_fits_to_new_fits(directory_path, file_prefix, "test-lightcurves-4class.fits")
     #read_fits_to_new_test_fits(directory_path, file_prefix, "test-cleaned-lightcurves.fits")
 
     #optimum_lr = findOptimumLr(file_path)    
 
-    tft_model = train_model(file_path)
+    #tft_model = train_model(file_path)
     
     #tft_model = predict_from_saved_model(file_path, checkpoint_path)
 
+    #split_lightcurves()
     #split_all_fits_files('test-halved-lightcurves','test-lightcurves')
-    #process_all_fits_files('testlightcurves', 'checkpoints/best-checkpoint.ckpt')
+    #process_all_fits_files('test-lightcurves', checkpoint_path)
     #combine_all_dataloaders('predictions-test')
-    #calculate_metrics()
+    calculate_metrics()
     #find_optimal_hyperparameters_from_saved_model(file_path, checkpoint_path)
 
     end_time = time.time()
