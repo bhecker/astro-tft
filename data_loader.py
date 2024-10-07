@@ -58,12 +58,12 @@ def read_fits_to_new_fits(directory_path, file_prefix, output_file):
         filtered_files = []
         for f in file_list:
             number = int(os.path.basename(f).split('-')[-1].split('_')[0])
-            if 1 <= number <= 20:
+            if 1 <= number <= 5:
                 filtered_files.append(f)
         return filtered_files
 
-    #head_files = filter_files(head_files)
-    #phot_files = filter_files(phot_files)
+    head_files = filter_files(head_files)
+    phot_files = filter_files(phot_files)
 
     data = []
 

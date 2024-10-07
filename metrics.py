@@ -24,7 +24,7 @@ def calculate_metrics():
     recall = recall_score(true_labels_flat, class_predictions_flat, average='weighted')
     f1 = f1_score(true_labels_flat, class_predictions_flat, average='weighted')
 
-    conf_matrix = confusion_matrix(true_labels_flat, class_predictions_flat)
+    conf_matrix = confusion_matrix(true_labels_flat, class_predictions_flat, labels=list(range(len(class_names))))
 
     metrics = {
     "accuracy": train_accuracy,
@@ -40,7 +40,12 @@ def calculate_metrics():
     print("Die Metriken wurden in metrics.json gespeichert.")
 
     plt.figure(figsize=(10, 8))
-    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
+    sns.heatmap(conf_matrix, 
+                annot=True, 
+                fmt='d', 
+                cmap='Blues', 
+                xticklabels=class_names, 
+                yticklabels=class_names)
     plt.xlabel('Predicted')
     plt.ylabel('True')
     plt.title('Confusion Matrix Validation')

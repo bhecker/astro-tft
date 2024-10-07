@@ -336,36 +336,72 @@ def combine_files(output_dir, dataloader_id):
     
     print(f"Combined files saved to {output_dir} for dataloader id {dataloader_id}")
 
+import os
+import numpy as np
+
 def combine_all_dataloaders(output_dir):
     dataloader_dirs = [d for d in os.listdir(output_dir) if d.isdigit()]
 
-    combined_cp_final_path = os.path.join(output_dir, 'final_combined_class_predictions.npy')
-    combined_tl_final_path = os.path.join(output_dir, 'final_combined_true_labels.npy')
-    combined_pa_final_path = os.path.join(output_dir, 'final_combined_probabilities_avg.npy')
+    combined_cp_list = []
+    combined_tl_list = []
+    combined_pa_list = []
 
     for dataloader_dir in sorted(dataloader_dirs, key=int):
         if int(dataloader_dir) == 161:
             continue
         dataloader_id = int(dataloader_dir)
-        combine_files(output_dir, dataloader_id)
+        #combine_files(output_dir, dataloader_id)
 
         combined_cp_path = os.path.join(output_dir, f'combined_class_predictions_dataloader_{dataloader_id}.npy')
         combined_tl_path = os.path.join(output_dir, f'combined_true_labels_dataloader_{dataloader_id}.npy')
         combined_pa_path = os.path.join(output_dir, f'combined_probabilities_avg_dataloader_{dataloader_id}.npy')
 
-        cp_data = np.load(combined_cp_path, mmap_mode='r')
-        tl_data = np.load(combined_tl_path, mmap_mode='r')
-        pa_data = np.load(combined_pa_path, mmap_mode='r')
+        cp_data = np.load(combined_cp_path)
+        tl_data = np.load(combined_tl_path)
+        pa_data = np.load(combined_pa_path)
 
-        with open(combined_cp_final_path, 'ab') as combined_cp_final, \
-             open(combined_tl_final_path, 'ab') as combined_tl_final, \
-             open(combined_pa_final_path, 'ab') as combined_pa_final:
-            np.save(combined_cp_final, cp_data)
-            np.save(combined_tl_final, tl_data)
-            np.save(combined_pa_final, pa_data)
+        combined_cp_list.append(cp_data)
+        combined_tl_list.append(tl_data)
+        combined_pa_list.append(pa_data)
+
+    # Kombinieren der Daten
+    combined_cp_final = np.concatenate(combined_cp_list)
+    combined_tl_final = np.concatenate(combined_tl_list)
+    combined_pa_final = np.concatenate(combined_pa_list)
+
+    # Speichern der kombinierten Arrays
+    combined_cp_final_path = os.path.join(output_dir, 'final_combined_class_predictions.npy')
+    combined_tl_final_path = os.path.join(output_dir, 'final_combined_true_labels.npy')
+    combined_pa_final_path = os.path.join(output_dir, 'final_combined_probabilities_avg.npy')
+
+    np.save(combined_cp_final_path, combined_cp_final)
+    np.save(combined_tl_final_path, combined_tl_final)
+    np.save(combined_pa_final_path, combined_pa_final)
 
     print(f"Final combined files saved to {output_dir}")
 
+
+def count_sim_type_index(fits_file):
+    with fits.open(fits_file) as hdul:
+        # Annahme, dass die relevanten Daten in der ersten Tabelle liegen (hdul[1])
+        data = hdul[1].data
+        # Dictionary für die Zählung der einzigartigen Kombinationen von group_id und sim_type_index
+        unique_combinations = defaultdict(set)
+        
+        # Durch alle Zeilen der FITS-Datei iterieren
+        for row in data:
+            group_id = row['group_id']
+            sim_type_index = row['sim_type_index']
+            
+            # Die Kombination aus group_id und sim_type_index als Set speichern
+            unique_combinations[sim_type_index].add(group_id)
+        
+        # Zählen der Anzahl der einzigartigen group_id pro sim_type_index
+        counts = {sim_type_index: len(group_ids) for sim_type_index, group_ids in unique_combinations.items()}
+        
+        # Ausgabe der Ergebnisse
+        for sim_type_index, count in counts.items():
+            print(f"SIM_TYPE_INDEX {sim_type_index}: {count} unique group_ids")
 
 
 class MemoryCleanupCallback(Callback):

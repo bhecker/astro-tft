@@ -39,9 +39,9 @@ def train_model(file_path, batch_size=32, max_epochs=10):
         raise ValueError("DataFrame ist leer. Überprüfen Sie die Datenlade- und Verarbeitungsfunktionen.")
     
     print("Berechne optimale Längen für Encoder und Decoder...")
-    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df), 1
+    max_encoder_length, max_prediction_length = 165, 1
     print(f"Optimale max_encoder_length: {max_encoder_length}, max_prediction_length: {max_prediction_length}")
-    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05), 1
+    min_encoder_length, min_prediction_length = 19, 1
     print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
 
     print("Teile Daten in Trainings- und Validierungssets...")
@@ -50,8 +50,8 @@ def train_model(file_path, batch_size=32, max_epochs=10):
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_prediction_length, max_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
     
-    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=13, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=13, persistent_workers=True, shuffle=False)
+    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=12, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=12, persistent_workers=True, shuffle=False)
     
     tft = get_tft_model(training, learning_rate=0.01)
 
@@ -65,7 +65,7 @@ def train_model(file_path, batch_size=32, max_epochs=10):
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints",
-        filename="best-checkpoint-encodlencalced",
+        filename="best-checkpoint-20241006-5file-encodlen165",
         save_top_k=1,
         monitor="val_loss",
         mode="min"
@@ -73,16 +73,9 @@ def train_model(file_path, batch_size=32, max_epochs=10):
 
     memory_cleanup_callback = MemoryCleanupCallback()
 
-    if torch.backends.mps.is_available():
-        device = 'mps'
-    elif torch.cuda.is_available():
-        device = 'cuda'
-    else:
-        device = 'cpu'
-
     trainer = pl.Trainer(
         max_epochs=max_epochs, 
-        accelerator=device,
+        accelerator='cuda',
     	devices=1,
         gradient_clip_val=0.1,
         callbacks=[early_stop_callback, checkpoint_callback, memory_cleanup_callback],
