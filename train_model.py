@@ -1,59 +1,54 @@
 import gc
 import glob
-import json
 import os
 import pickle
 import lightning.pytorch as pl
-from matplotlib import pyplot as plt
-import numpy as np
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, log_loss
 from pytorch_forecasting import TimeSeriesDataSet
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 import seaborn as sns
 import torch.nn.functional as F
 from pytorch_forecasting.models.temporal_fusion_transformer.tuning import optimize_hyperparameters
-from lightning.pytorch.accelerators import find_usable_cuda_devices
 from astropy.io import fits
 
-from data_loader import load_fits_data, load_fits_file
+from data_loader import load_fits_file
 from dataset import get_time_series_dataset
 from model import get_best_tft_model, get_tft_model
 from utils import MemoryCleanupCallback, calculate_optimal_lengths, free_memory
 
-def train_model(file_path, batch_size=32, max_epochs=10):
+def train_model(file_path, batch_size=32, learning_rate=0.01, max_epochs=10, num_workers=0):
     pl.seed_everything(42)
 
     free_memory()
 
-    print("Lade Daten...")
+    print("Load data...")
     df = load_fits_file(file_path)
     
-    print("DataFrame Vorschau:\n", df.head())
-    print("Anzahl der Zeilen im DataFrame:", len(df))
+    print("DataFrame preview:\n", df.head())
+    print("DataFrame line count:", len(df))
     
     if df.empty:
-        raise ValueError("DataFrame ist leer. Überprüfen Sie die Datenlade- und Verarbeitungsfunktionen.")
+        raise ValueError("DataFrame is empty. Check dataloading.")
     
-    print("Berechne optimale Längen für Encoder und Decoder...")
-    max_encoder_length, max_prediction_length = 165, 1
-    print(f"Optimale max_encoder_length: {max_encoder_length}, max_prediction_length: {max_prediction_length}")
-    min_encoder_length, min_prediction_length = 19, 1
-    print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
+    print("Calculating optimal encoder length...")
+    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, 0.95), 1
+    print(f"Optimal max_encoder_length: {max_encoder_length}")
+    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df, 0.05), 1
+    print(f"Optimal min_encoder_length: {min_encoder_length}")
 
-    print("Teile Daten in Trainings- und Validierungssets...")
+    print("Splitting data into training and validation sets...")
     train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["sim_type_index"])
     
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_prediction_length, max_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
     
-    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=12, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=12, persistent_workers=True, shuffle=False)
+    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=num_workers, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=num_workers, persistent_workers=True, shuffle=False)
     
-    tft = get_tft_model(training, learning_rate=0.01)
+    tft = get_tft_model(training, learning_rate=learning_rate)
 
     logger = TensorBoardLogger("tb_logs", name="my_model")
     early_stop_callback = EarlyStopping(
@@ -65,7 +60,7 @@ def train_model(file_path, batch_size=32, max_epochs=10):
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints",
-        filename="best-checkpoint-20241006-5file-encodlen165",
+        filename="best-checkpoint",
         save_top_k=1,
         monitor="val_loss",
         mode="min"
@@ -86,213 +81,7 @@ def train_model(file_path, batch_size=32, max_epochs=10):
     free_memory()
     trainer.fit(tft, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
     free_memory()
-
-    best_model_path = trainer.checkpoint_callback.best_model_path
-    
-    predict_from_saved_model(f"test-lightcurves-4class.fits", best_model_path)
-        
-    return tft
-
-def predict_from_saved_model(file_path, best_model_path, batch_size=1028):
-    pl.seed_everything(42)
-
-    free_memory()
-
-    print("Lade Daten...")
-    df = load_fits_file(file_path)
-    
-    print("DataFrame Vorschau:\n", df.head())
-    print("Anzahl der Zeilen im DataFrame:", len(df))
-    
-    if df.empty:
-        raise ValueError("DataFrame ist leer. Überprüfen Sie die Datenlade- und Verarbeitungsfunktionen.")
-    
-    #print("Berechne optimale Längen für Encoder und Decoder...")
-    max_encoder_length, max_prediction_length = 165, 165
-    print(f"Optimale max_encoder_length: {max_encoder_length}, max_prediction_length: {max_prediction_length}")
-    min_encoder_length, min_prediction_length = 19, 19
-    print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
-
-    #print("Teile Daten in Trainings- und Validierungssets...")
-    #train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["group_id"])
-    test = get_time_series_dataset(df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
-    #training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
-    #validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
-#
-    #train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=4, persistent_workers=True)
-    #val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=4, persistent_workers=True, shuffle=False)
-    test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=12, persistent_workers=True, shuffle=False)
-    
-    tft = get_best_tft_model(best_model_path)
-
-    trainer_kwargs = {
-        'accelerator': 'cuda',
-        'devices': 1,
-        'enable_progress_bar': True,
-    }
-
-    # print("TRAINING")
-
-    # with torch.inference_mode():
-    #     #train_predictions = tft.predict(train_dataloader, mode="raw", trainer_kwargs=trainer_kwargs, return_x=True)
-    #     #train_y_true = torch.cat([y["decoder_target"] for x, y in train_dataloader], dim=0).numpy()
-    #     #train_y_pred = torch.cat([pred.argmax(dim=1) for pred in train_predictions], dim=0).numpy()
-    #     #train_accuracy = accuracy_score(train_y_true, train_y_pred)
-
-    #     """ predictions, inputs = tft.predict(val_dataloader, 
-    #                 mode="prediction",
-    #                 trainer_kwargs=trainer_kwargs, 
-    #                 #write_interval='batch', 
-    #                 #output_dir='predictions', 
-    #                 fast_dev_run=True,
-    #                 return_x=True) """
-    #     tft.predict(train_dataloader, 
-    #                 mode="raw",
-    #                 write_interval='batch',
-    #                 output_dir='predictions',
-    #                 trainer_kwargs=trainer_kwargs,
-    #                 return_x=True)
-    
-    # free_memory()
-
-    # train_class_predictions = []
-    # train_true_labels = []
-
-    # length_dataloader = len(train_dataloader)
-
-    # for batch_idx in range(length_dataloader):
-    #     train_class_predictions.append(np.load(f'predictions/train_dataloader_0/class_predictions_batch_{batch_idx}.npy'))
-    #     train_true_labels.append(np.load(f'predictions/train_dataloader_0/true_labels_batch_{batch_idx}.npy'))
-
-    # train_class_predictions = np.concatenate(train_class_predictions)
-    # train_true_labels = np.concatenate(train_true_labels)
-
-    # print("Train class pred shape:", train_class_predictions.shape)
-    # print("Train true labels shape:", train_true_labels.shape)
-
-    # train_accuracy = accuracy_score(train_true_labels, train_class_predictions)
-    # print(f"Train Accuracy: {train_accuracy:.4f}")
-
-    # original_class_names = ['Cepheids', 'Dwarf novae', 'Lenses', 'SNIIa']
-
-    # print(classification_report(train_true_labels, train_class_predictions, target_names=original_class_names, zero_division=0))
-
-    # conf_matrix = confusion_matrix(train_true_labels, train_class_predictions, labels=original_class_names)
-
-    # plt.figure(figsize=(10, 8))
-    # sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-    # plt.xlabel('Predicted')
-    # plt.ylabel('True')
-    # plt.title('Confusion Matrix Training')
-    # plt.show()
-
-    # del train_class_predictions
-    # del train_true_labels
-
-    # free_memory()
-    
-    print("TEST")
-    predictions = tft.predict(test_dataloader, 
-                              mode="raw",
-                              trainer_kwargs=trainer_kwargs, 
-                              fast_dev_run=False,
-                              write_interval='batch',
-                              output_dir='predictions',
-                              return_x=True)
-    free_memory()
-
-    logits = predictions.output.prediction
-    true_labels = predictions.x['decoder_target']
-
-    logits_cpu = logits.cpu()
-    true_labels_cpu = true_labels.cpu()
-
-    probabilities = F.softmax(logits_cpu.clone().detach(), dim=-1)
-    probabilities_avg = probabilities.mean(dim=1)
-    print(f"Shape of probabilities: {probabilities.shape}")
-
-    class_predictions = np.argmax(probabilities, axis=-1)
-
-    class_predictions_flat = class_predictions.view(-1).numpy()
-    true_labels_flat = true_labels_cpu.view(-1).numpy()
-    
-    train_accuracy = accuracy_score(true_labels_flat, class_predictions_flat)
-
-    print(classification_report(true_labels_flat, class_predictions_flat, zero_division=0))
-
-    precision = precision_score(true_labels_flat, class_predictions_flat, average='weighted')
-    recall = recall_score(true_labels_flat, class_predictions_flat, average='weighted')
-    f1 = f1_score(true_labels_flat, class_predictions_flat, average='weighted')
-
-    conf_matrix = confusion_matrix(true_labels_flat, class_predictions_flat)
-
-    roc_auc = roc_auc_score(true_labels_flat, probabilities_avg, multi_class='ovr')
-    log_loss_value = log_loss(true_labels_flat, probabilities_avg)
-
-    metrics = {
-    "accuracy": train_accuracy,
-    "precision": precision,
-    "recall": recall,
-    "f1_score": f1,
-    "confusion_matrix": conf_matrix.tolist(),
-    "roc_auc": roc_auc,
-    "log_loss": log_loss_value
-    }
-
-    with open("metrics.json", "w") as file:
-        json.dump(metrics, file, indent=4)
-
-    print("Die Metriken wurden in metrics.json gespeichert.")
-
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-    plt.xlabel('Predicted')
-    plt.ylabel('True')
-    plt.title('Confusion Matrix Validation')
-    plt.savefig('conf_matrix.png')
-    plt.show()
-    
-    #val_class_predictions = []
-    #val_true_labels = []
-    #
-    #length_dataloader = len(test_dataloader)
-    #
-    #for batch_idx in range(6802):
-    #    val_class_predictions.append(np.load(f'predictions/test_dataloader_0/class_predictions_batch_{batch_idx}.npy'))
-    #    val_true_labels.append(np.load(f'predictions/test_dataloader_0/true_labels_batch_{batch_idx}.npy'))
-
-    # Concatenate all batches
-    #val_class_predictions = np.concatenate(val_class_predictions)
-    #val_true_labels = np.concatenate(val_true_labels)
             
-    #print("Val class pred shape:", val_class_predictions.shape)
-    #print("Val true labels shape:", val_true_labels.shape)
-#
-    #val_accuracy = accuracy_score(val_true_labels, val_class_predictions)
-    #print(f"Validation Accuracy: {val_accuracy:.4f}")
-#
-    #original_class_names = ['Cepheids', 'Dwarf novae', 'Lenses', 'SNIa']
-#
-    #print(classification_report(val_true_labels, val_class_predictions, target_names=original_class_names, zero_division=0))
-#
-    #conf_matrix = confusion_matrix(val_true_labels, val_class_predictions, labels=original_class_names)
-#
-    #plt.figure(figsize=(10, 8))
-    #sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-    #plt.xlabel('Predicted')
-    #plt.ylabel('True')
-    #plt.title('Confusion Matrix Validation')
-    #plt.show()
-#
-    #del val_class_predictions
-    #del val_true_labels
-
-    free_memory()
-#Felder von predictions.output
-#_fields: ('prediction', 'encoder_attention', 'decoder_attention', 'static_variables', 'encoder_variables', 'decoder_variables', 'decoder_lengths', #'encoder_lengths')
-
-#Keys in predictions.x: dict_keys(['encoder_cat', 'encoder_cont', 'encoder_target', 'encoder_lengths', 'decoder_cat', 'decoder_cont', #'decoder_target', 'decoder_lengths', 'decoder_time_idx', 'groups', 'target_scale'])
-
     return tft
 
 def find_optimal_hyperparameters_from_saved_model(file_path, best_model_path, batch_size=128):
@@ -300,21 +89,39 @@ def find_optimal_hyperparameters_from_saved_model(file_path, best_model_path, ba
 
     free_memory()
 
-    print("Lade Daten...")
+    print("Load data...")
     df = load_fits_file(file_path)
-
-    print("unique werte", df['group_id'].nunique())
-    print("DataFrame Vorschau:\n", df.head())
-    print("Anzahl der Zeilen im DataFrame:", len(df))
+    
+    print("DataFrame preview:\n", df.head())
+    print("DataFrame line count:", len(df))
     
     if df.empty:
-        raise ValueError("DataFrame ist leer. Überprüfen Sie die Datenlade- und Verarbeitungsfunktionen.")
+        raise ValueError("DataFrame is empty. Check dataloading.")
     
-    print("Berechne optimale Längen für Encoder und Decoder...")
-    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df)
-    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05)
+    print("Calculating optimal encoder length...")
+    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, 0.95), 1
+    print(f"Optimal max_encoder_length: {max_encoder_length}")
+    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df, 0.05), 1
+    print(f"Optimal min_encoder_length: {min_encoder_length}")    
 
-    print("Teile Daten in Trainings- und Validierungssets...")
+    free_memory()
+
+    print("Load data...")
+    df = load_fits_file(file_path)
+    
+    print("DataFrame preview:\n", df.head())
+    print("DataFrame line count:", len(df))
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty. Check dataloading.")
+    
+    print("Calculating optimal encoder length...")
+    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, 0.95), 1
+    print(f"Optimal max_encoder_length: {max_encoder_length}")
+    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df, 0.05), 1
+    print(f"Optimal min_encoder_length: {min_encoder_length}")
+
+    print("Splitting data into training and validation sets...")
     train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["group_id"])
     
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
@@ -345,7 +152,7 @@ def find_optimal_hyperparameters_from_saved_model(file_path, best_model_path, ba
 
     print(study.best_trial.params)
 
-def process_all_fits_files(directory_path, checkpoint_path, batch_size=1028):
+def process_all_fits_files(directory_path, checkpoint_path, batch_size=1028, max_encoder_length=200, min_encoder_length=1, min_pred_length=1, max_pred_length=1):
     pl.seed_everything(42)
 
     fits_files = sorted(glob.glob(os.path.join(directory_path, '*.fits')))
@@ -361,13 +168,13 @@ def process_all_fits_files(directory_path, checkpoint_path, batch_size=1028):
     i = 0
     for fits_file in fits_files:
         i = i + 1
-        print("predicting file", fits_file)
+        print("Predicting file", fits_file)
         print("for run No.", i)
         with fits.open(fits_file) as hdul:
             data = hdul[1].data
         
         df = pd.DataFrame(data)
-        test = get_time_series_dataset(df, 165, 165, 19, 19)
+        test = get_time_series_dataset(df, max_encoder_length, max_pred_length, min_encoder_length, min_pred_length)
 
         test_dataloader = test.to_dataloader(train=False, batch_size=batch_size, num_workers=0, shuffle=False)
         

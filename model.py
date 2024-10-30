@@ -24,4 +24,4 @@ def get_tft_model(training, learning_rate=0.3, lstm_layers=2, hidden_size=128, a
     return tft
 
 def get_best_tft_model(best_model_path):
-    return TemporalFusionTransformer.load_from_checkpoint(best_model_path)
+    return TemporalFusionTransformer.load_from_checkpoint(best_model_path, map_location=torch.device('mps'))

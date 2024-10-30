@@ -1,22 +1,19 @@
 import json
 from matplotlib import pyplot as plt
 import numpy as np
-from pytorch_forecasting import NaNLabelEncoder, TemporalFusionTransformer
-from sklearn.metrics import classification_report, confusion_matrix, f1_score, log_loss, precision_score, recall_score, roc_auc_score, accuracy_score
+from sklearn.calibration import label_binarize
+from sklearn.metrics import auc, classification_report, confusion_matrix, f1_score, precision_recall_curve, precision_score, recall_score, accuracy_score
 import seaborn as sns
 
 def calculate_metrics():
-    model = TemporalFusionTransformer.load_from_checkpoint("best-checkpoint-20240918-165encoder.ckpt")
-    # if hasattr(model, 'output_transformer'):
-    #     output_transformer = model.output_transformer
-    #     class_names = output_transformer.classes_
-
     class_names = ['SNIa', 'Dwarf Novae', 'Microlenses', 'Cepheids']
 
     class_predictions_flat = np.load(f'predictions-test/final_combined_class_predictions.npy')
     true_labels_flat = np.load(f'predictions-test/final_combined_true_labels.npy')
     probabilities_avg = np.load(f'predictions-test/final_combined_probabilities_avg.npy')
     
+    calculate_pr_curve(class_names, true_labels_flat, probabilities_avg)
+
     train_accuracy = accuracy_score(true_labels_flat, class_predictions_flat)
     print(classification_report(true_labels_flat, class_predictions_flat, target_names=class_names, zero_division=0))
 
@@ -37,7 +34,7 @@ def calculate_metrics():
     with open("metrics.json", "w") as file:
         json.dump(metrics, file, indent=4)
 
-    print("Die Metriken wurden in metrics.json gespeichert.")
+    print("Metrics saved to metrics.json.")
 
     plt.figure(figsize=(10, 8))
     sns.heatmap(conf_matrix, 
@@ -50,4 +47,23 @@ def calculate_metrics():
     plt.ylabel('True')
     plt.title('Confusion Matrix Validation')
     plt.savefig('conf_matrix.png')
+    plt.show()
+
+
+def calculate_pr_curve(class_names, true_labels_flat, probabilities_avg):
+    true_labels_binarized = label_binarize(true_labels_flat, classes=[0, 1, 2, 3])
+
+    plt.figure(figsize=(8, 6))
+
+    for i in range(len(class_names)):
+        precision, recall, _ = precision_recall_curve(true_labels_binarized[:, i], probabilities_avg[:, i])
+        pr_auc = auc(recall, precision)
+        plt.plot(recall, precision, label=f'{class_names[i]} (AUC = {pr_auc:.2f})')
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall Curve')
+    plt.legend(loc='best')
+    plt.grid(True)
+    plt.savefig('pr_curve.png')
     plt.show()
