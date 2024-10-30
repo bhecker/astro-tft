@@ -18,12 +18,12 @@ def load_fits_data(directory_path, file_prefix):
 
     data = []
 
-    print(f"Gefundene HEAD-Dateien: {len(head_files)}")
-    print(f"Gefundene PHOT-Dateien: {len(phot_files)}")
+    print(f"Found HEAD-files: {len(head_files)}")
+    print(f"Found PHOT-files: {len(phot_files)}")
 
     for head_file, phot_file in zip(head_files, phot_files):
-        print(f"Verarbeite HEAD-Datei: {head_file}")
-        print(f"Verarbeite PHOT-Datei: {phot_file}")
+        print(f"Processing HEAD-file: {head_file}")
+        print(f"Processing PHOT-file: {phot_file}")
 
         with fits.open(head_file) as head_hdu:
             head_data = head_hdu[1].data
@@ -43,11 +43,11 @@ def load_fits_data(directory_path, file_prefix):
                 for time_idx, fluxcal in enumerate(fluxcal_values):
                     data.append([snid, time_idx, fluxcal, sim_type_index])
 
-        print(f"Abgeschlossen: {head_file} und {phot_file}")
+        print(f"Completed: {head_file} and {phot_file}")
 
     df = pd.DataFrame(data, columns=["group_id", "time_idx", "fluxcal", "sim_type_index"])
     
-    print(f"Erstelltes DataFrame mit {len(df)} Zeilen")
+    print(f"Created DataFrame with {len(df)} lines")
     return df
 
 def read_fits_to_new_fits(directory_path, file_prefix, output_file):
@@ -67,12 +67,12 @@ def read_fits_to_new_fits(directory_path, file_prefix, output_file):
 
     data = []
 
-    print(f"Gefundene HEAD-Dateien: {len(head_files)}")
-    print(f"Gefundene PHOT-Dateien: {len(phot_files)}")
+    print(f"Found HEAD-files: {len(head_files)}")
+    print(f"Found PHOT-files: {len(phot_files)}")
 
     for head_file, phot_file in zip(head_files, phot_files):
-        print(f"Verarbeite HEAD-Datei: {head_file}")
-        print(f"Verarbeite PHOT-Datei: {phot_file}")
+        print(f"Processing HEAD-file: {head_file}")
+        print(f"Processing PHOT-file: {phot_file}")
 
         with fits.open(head_file) as head_hdu:
             head_data = head_hdu[1].data
@@ -96,7 +96,7 @@ def read_fits_to_new_fits(directory_path, file_prefix, output_file):
                 for time_idx, (fluxcal, fluxcal_err_val, mjd_val, band_val) in enumerate(zip(fluxcal_values, fluxcal_err, mjd, band)):
                     data.append((snid, time_idx, fluxcal, fluxcal_err_val, mjd_val, band_val, redshift, sim_type_index))
 
-        print(f"Abgeschlossen: {head_file} und {phot_file}")
+        print(f"Completed: {head_file} and {phot_file}")
 
     col1 = fits.Column(name='group_id', format='A20', array=np.array([row[0] for row in data]))
     col2 = fits.Column(name='time_idx', format='K', array=np.array([row[1] for row in data]))
@@ -111,7 +111,7 @@ def read_fits_to_new_fits(directory_path, file_prefix, output_file):
 
     hdu.writeto(output_file, overwrite=True)
     
-    print(f"Neue FITS-Datei erstellt: {output_file}")
+    print(f"Create new fits-File: {output_file}")
 
 def get_fits_column_names(directory_path, file_prefix):
     head_file = sorted(glob.glob(os.path.join(directory_path, f"{file_prefix}*HEAD.FITS"), recursive=True))[0]
@@ -127,11 +127,11 @@ def get_fits_column_names(directory_path, file_prefix):
         columns = hdu_list[1].columns
         column_info['PHOT'] = [(col.name, col.format) for col in columns]
 
-    print("HEAD FITS Column Names and Formats:")
+    print("HEAD fits column names and formats:")
     for name, fmt in column_info['HEAD']:
         print(f"Name: {name}, Format: {fmt}")
 
-    print("\nPHOT FITS Column Names and Formats:")
+    print("\nPHOT fits column names and formats:")
     for name, fmt in column_info['PHOT']:
         print(f"Name: {name}, Format: {fmt}")
 
@@ -141,22 +141,22 @@ def check_inhomogeneous_shape(data, target_shape):
         try:
             np_array = np.array(value)
             if np_array.shape == target_shape:
-                print(f"Row {i} has the target shape {target_shape}: {value}")
+                print(f"Row {i} has target shape {target_shape}: {value}")
         except Exception as e:
             print(f"Error processing row {i}: {e}")
 
 def remove_underrepresented_classes(df):
     class_counts = df['sim_type_index'].value_counts()
-    print("Klassenverteilung vor Anpassung:")
+    print("Classes before adjustment:")
     print(class_counts)
 
     few_members_classes = class_counts[class_counts < 2].index.tolist()
-    print(f"Klassen mit weniger als 2 Vertretern: {few_members_classes}")
+    print(f"Classes with less than 2 occurrences: {few_members_classes}")
 
     df = df[~df['sim_type_index'].isin(few_members_classes)]
 
     class_counts_after = df['sim_type_index'].value_counts()
-    print("Klassenverteilung nach Anpassung:")
+    print("Classes after adjustment:")
     print(class_counts_after)
 
     return df

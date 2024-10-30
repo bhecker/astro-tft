@@ -1,10 +1,10 @@
 from collections import defaultdict
 import gc
-import os
 import numpy as np
-from sklearn.model_selection import train_test_split
+import pandas as pd
 import torch
 import lightning.pytorch as pl
+from sklearn.model_selection import train_test_split
 from lightning.pytorch.tuner import Tuner
 from pytorch_forecasting import TimeSeriesDataSet
 from lightning.pytorch.callbacks import EarlyStopping, Callback
@@ -24,17 +24,17 @@ def free_memory():
     if torch.backends.mps.is_available():
         torch.mps.empty_cache()
 
-def findOptimumLr(file_path):
+def findOptimumLr(file_path, batch_size=128, num_workers=0):
     pl.seed_everything(42)
 
     print("Lade Daten...")
     df = load_fits_file(file_path)
 
-    print("Berechne optimale Längen für Encoder und Decoder...")
-    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, quantile=0.95)
-    print(f"Optimale max_encoder_length: {max_encoder_length}, max_prediction_length: {max_prediction_length}")
-    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05)
-    print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
+    print("Calculating optimal encoder length...")
+    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, quantile=0.95), 1
+    print(f"Optimal max_encoder_length: {max_encoder_length}")
+    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05), 1
+    print(f"Optimal min_encoder_length: {min_encoder_length}")
 
     remove_underrepresented_classes(df)
 
@@ -43,109 +43,8 @@ def findOptimumLr(file_path):
     training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
     validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
 
-    train_dataloader = training.to_dataloader(train=True, batch_size=256, num_workers=28, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=256*10, num_workers=28, persistent_workers=True) 
-
-    early_stop_callback = EarlyStopping(
-        monitor="val_loss",
-        patience=3, 
-        verbose=False,
-        mode="min"
-        )
-
-    trainer = pl.Trainer(        
-        accelerator="cuda",
-    	devices=1,
-        callbacks=[early_stop_callback],
-        enable_progress_bar=True,
-    )
-
-    tft = get_tft_model(training)
-
-    
-    res = Tuner(trainer).lr_find(
-        tft,
-        train_dataloaders=train_dataloader,
-        val_dataloaders=val_dataloader,
-        max_lr=10.0,
-        min_lr=1e-6,
-        num_training=200
-    )
-
-    print(f"suggested learning rate: {res.suggestion()}")
-    fig = res.plot(show=True, suggest=True)
-    fig.savefig('lr_find_plot.png')
-    fig.show()
-    
-def get_shortest_series(df, n=10):
-    lengths = df.groupby("group_id")["time_idx"].max() + 1
-
-    total_series = len(lengths)
-    print(f"Gesamtanzahl der Datensätze im DataFrame: {total_series}")
-
-    num_shorter_than_20 = (lengths < 20).sum()
-    print(f"Anzahl der Datensätze, die kürzer als 20 Zeitpunkte sind: {num_shorter_than_20}")
-
-    shortest_lengths = lengths.nsmallest(n)
-    print("Längen der kürzesten Zeitreihen:\n", shortest_lengths)
-    
-    shortest_series = []
-
-    for group_id in shortest_lengths.index:
-        series = df[df["group_id"] == group_id]
-        shortest_series.append(series)
-        print(f"Zeitreihe für group_id {group_id}:\n", series)
-
-    return shortest_series    
-
-class MemoryCleanupCallback(Callback):
-    def on_epoch_end(self, trainer, pl_module):
-        free_memory()
-import gc
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-import torch
-import lightning.pytorch as pl
-from lightning.pytorch.tuner import Tuner
-from pytorch_forecasting import TimeSeriesDataSet
-from lightning.pytorch.callbacks import EarlyStopping, Callback
-
-from data_loader import load_fits_file, remove_underrepresented_classes
-from dataset import get_time_series_dataset
-from model import get_tft_model
-
-def calculate_optimal_lengths(df, quantile=0.95):
-    lengths = df.groupby("group_id")["time_idx"].max() + 1
-    optimal_length = int(lengths.quantile(quantile))
-    return optimal_length
-
-def free_memory():
-    gc.collect()
-    if torch.backends.mps.is_available():
-        torch.mps.empty_cache()
-
-def findOptimumLr(file_path):
-    pl.seed_everything(42)
-
-    print("Lade Daten...")
-    df = load_fits_file(file_path)
-
-    print("Berechne optimale Längen für Encoder und Decoder...")
-    max_encoder_length, max_prediction_length = calculate_optimal_lengths(df, quantile=0.95)
-    print(f"Optimale max_encoder_length: {max_encoder_length}, max_prediction_length: {max_prediction_length}")
-    min_encoder_length, min_prediction_length = calculate_optimal_lengths(df,quantile=0.05)
-    print(f"Optimale min_encoder_length: {min_encoder_length}, min_prediction_length: {min_prediction_length}")
-
-    remove_underrepresented_classes(df)
-
-    train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df["sim_type_index"])
-
-    training = get_time_series_dataset(train_df, max_encoder_length, max_prediction_length, min_encoder_length, min_prediction_length)
-    validation = TimeSeriesDataSet.from_dataset(training, val_df, predict=False, stop_randomization=True)
-
-    train_dataloader = training.to_dataloader(train=True, batch_size=128, num_workers=13, persistent_workers=True)
-    val_dataloader = validation.to_dataloader(train=False, batch_size=128*10, num_workers=13, persistent_workers=True) 
+    train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=num_workers, persistent_workers=True)
+    val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size*10, num_workers=num_workers, persistent_workers=True) 
 
     early_stop_callback = EarlyStopping(
         monitor="val_loss",
@@ -172,7 +71,7 @@ def findOptimumLr(file_path):
         num_training=200
     )
 
-    print(f"suggested learning rate: {res.suggestion()}")
+    print(f"Suggested learning rate: {res.suggestion()}")
     fig = res.plot(show=True, suggest=True)
     fig.savefig('lr_find_plot.png')
     fig.show()
@@ -181,68 +80,58 @@ def get_shortest_series(df, n=10):
     lengths = df.groupby("group_id")["time_idx"].max() + 1
 
     total_series = len(lengths)
-    print(f"Gesamtanzahl der Datensätze im DataFrame: {total_series}")
+    print(f"All samples in DataFrame: {total_series}")
 
     num_shorter_than_20 = (lengths < 20).sum()
-    print(f"Anzahl der Datensätze, die kürzer als 20 Zeitpunkte sind: {num_shorter_than_20}")
+    print(f"All samples shorter than 20 sind: {num_shorter_than_20}")
 
     shortest_lengths = lengths.nsmallest(n)
-    print("Längen der kürzesten Zeitreihen:\n", shortest_lengths)
+    print("Length of shortest sample:\n", shortest_lengths)
     
     shortest_series = []
 
     for group_id in shortest_lengths.index:
         series = df[df["group_id"] == group_id]
         shortest_series.append(series)
-        print(f"Zeitreihe für group_id {group_id}:\n", series)
+        print(f"Sequence for group_id {group_id}:\n", series)
 
     return shortest_series    
 
-def split_lightcurves():
+def split_lightcurves(source_path, target_path, target_file_name):
     group_size = 130
     
-    with fits.open('test-lightcurves-4class.fits') as hdul:
+    with fits.open(source_path) as hdul:
         data = hdul[1].data
         columns = hdul[1].columns
 
-    # Get unique group_ids
     group_ids = np.unique(data['group_id'])
 
-    # Split the group_ids into chunks of specified size
     for i in range(0, len(group_ids), group_size):
         chunk_group_ids = group_ids[i:i + group_size]
 
-        # Filter data to only include rows with group_ids in the current chunk
         chunk_data = data[np.isin(data['group_id'], chunk_group_ids)]
 
-        # Create new FITS file
         hdu = fits.BinTableHDU.from_columns(columns, nrows=len(chunk_data))
 
         for colname in columns.names:
             hdu.data[colname] = chunk_data[colname]
 
-        # Save the chunk to a new FITS file
-        output_file = os.path.join('test-lightcurves', f"test-lightcurves_chunk_{i // group_size + 1}.fits")
+        output_file = os.path.join(target_path, f"{target_file_name}_chunk_{i // group_size + 1}.fits")
         hdu.writeto(output_file, overwrite=True)
         print(f"Saved {len(chunk_group_ids)} group_ids to {output_file}")
 
 def split_fits_file(file_path, output_dir):
-    # Erstelle das Ausgabeverzeichnis, falls es noch nicht existiert
     os.makedirs(output_dir, exist_ok=True)
 
-    # FITS-Datei laden
     with fits.open(file_path) as hdul:
         data = hdul[1].data
 
-    # Gruppiere die Daten nach 'group_id'
     group_dict = defaultdict(list)
     for row in data:
         group_dict[row['group_id']].append(row)
 
-    # Sortiere die Gruppen nach der Anzahl der Mitglieder
     sorted_groups = sorted(group_dict.items(), key=lambda x: len(x[1]), reverse=True)
 
-    # Teile die Gruppen in zwei Hälften
     half_size = len(data) // 2
     current_size = 0
     first_half = []
@@ -254,14 +143,10 @@ def split_fits_file(file_path, output_dir):
         else:
             second_half.extend(rows)
 
-    # Erste Hälfte speichern
     save_fits(first_half, os.path.join(output_dir, 'half_1_' + os.path.basename(file_path)))
-
-    # Zweite Hälfte speichern
     save_fits(second_half, os.path.join(output_dir, 'half_2_' + os.path.basename(file_path)))
 
 def save_fits(data, output_file):
-    # Konvertiere die Daten zurück in ein FITS-kompatibles Format
     col1 = fits.Column(name='group_id', format='A20', array=np.array([row['group_id'] for row in data]))
     col2 = fits.Column(name='time_idx', format='K', array=np.array([row['time_idx'] for row in data]))
     col3 = fits.Column(name='fluxcal', format='1E', array=np.array([row['fluxcal'] for row in data]))
@@ -271,13 +156,11 @@ def save_fits(data, output_file):
     col7 = fits.Column(name='redshift', format='1E', array=np.array([row['redshift'] for row in data]))
     col8 = fits.Column(name='sim_type_index', format='K', array=np.array([row['sim_type_index'] for row in data]))
 
-    # Erstelle die neue FITS-Tabelle
     hdu = fits.BinTableHDU.from_columns([col1, col2, col3, col4, col5, col6, col7, col8])
 
-    # Speichere die FITS-Datei
     hdu.writeto(output_file, overwrite=True)
 
-    print(f"Neue FITS-Datei erstellt: {output_file}")
+    print(f"Created new fits-file: {output_file}")
 
 def split_all_fits_files(directory_path, output_dir):
     fits_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.endswith('.fits')]
@@ -349,7 +232,7 @@ def combine_all_dataloaders(output_dir):
         if int(dataloader_dir) == 161:
             continue
         dataloader_id = int(dataloader_dir)
-        #combine_files(output_dir, dataloader_id)
+        combine_files(output_dir, dataloader_id)
 
         combined_cp_path = os.path.join(output_dir, f'combined_class_predictions_dataloader_{dataloader_id}.npy')
         combined_tl_path = os.path.join(output_dir, f'combined_true_labels_dataloader_{dataloader_id}.npy')
@@ -363,12 +246,10 @@ def combine_all_dataloaders(output_dir):
         combined_tl_list.append(tl_data)
         combined_pa_list.append(pa_data)
 
-    # Kombinieren der Daten
     combined_cp_final = np.concatenate(combined_cp_list)
     combined_tl_final = np.concatenate(combined_tl_list)
     combined_pa_final = np.concatenate(combined_pa_list)
 
-    # Speichern der kombinierten Arrays
     combined_cp_final_path = os.path.join(output_dir, 'final_combined_class_predictions.npy')
     combined_tl_final_path = os.path.join(output_dir, 'final_combined_true_labels.npy')
     combined_pa_final_path = os.path.join(output_dir, 'final_combined_probabilities_avg.npy')
@@ -382,23 +263,17 @@ def combine_all_dataloaders(output_dir):
 
 def count_sim_type_index(fits_file):
     with fits.open(fits_file) as hdul:
-        # Annahme, dass die relevanten Daten in der ersten Tabelle liegen (hdul[1])
         data = hdul[1].data
-        # Dictionary für die Zählung der einzigartigen Kombinationen von group_id und sim_type_index
         unique_combinations = defaultdict(set)
         
-        # Durch alle Zeilen der FITS-Datei iterieren
         for row in data:
             group_id = row['group_id']
             sim_type_index = row['sim_type_index']
             
-            # Die Kombination aus group_id und sim_type_index als Set speichern
             unique_combinations[sim_type_index].add(group_id)
         
-        # Zählen der Anzahl der einzigartigen group_id pro sim_type_index
         counts = {sim_type_index: len(group_ids) for sim_type_index, group_ids in unique_combinations.items()}
         
-        # Ausgabe der Ergebnisse
         for sim_type_index, count in counts.items():
             print(f"SIM_TYPE_INDEX {sim_type_index}: {count} unique group_ids")
 
